@@ -226,7 +226,7 @@ class ConvLSTMCell(nn.Module):
 class ConvLSTM(nn.Module):
 
     def __init__(self, input_size, input_dim, hidden_dim, kernel_size, num_layers,
-                 batch_first=False, bias=True, return_all_layers=False):
+                 batch_first=False, bias=True, return_all_layers=False, hidden_state=None):
         super(ConvLSTM, self).__init__()
 
         self._check_kernel_size_consistency(kernel_size)
@@ -245,6 +245,7 @@ class ConvLSTM(nn.Module):
         self.num_layers = num_layers
         self.batch_first = batch_first
         self.bias = bias
+        self.hidden_state = hidden_state
         self.return_all_layers = return_all_layers
 
         cell_list = []
@@ -259,7 +260,7 @@ class ConvLSTM(nn.Module):
 
         self.cell_list = nn.ModuleList(cell_list)
 
-    def forward(self, input_tensor, hidden_state=None):
+    def forward(self, input_tensor, hidden_state=self.hidden_state):
         """
 
         Parameters
@@ -278,9 +279,7 @@ class ConvLSTM(nn.Module):
             input_tensor = input_tensor.permute(1, 0, 2, 3, 4)
 
         # Implement stateful ConvLSTM
-        if hidden_state is not None:
-            raise NotImplementedError()
-        else:
+        if hidden_state is None:
             hidden_state = self._init_hidden(batch_size=input_tensor.size(0))
 
         layer_output_list = []
