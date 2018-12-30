@@ -15,8 +15,8 @@ def face_landmark_detection(dataset_path, predictor_path, dst_path, phase='train
     img_paths = sorted(glob.glob(faces_folder_path + "/*"))
 
     for i in range(len(img_paths)):
-        if i > 2:
-            break
+    #     if i > 2:
+    #         break
 
         f = img_paths[i]
         print("Processing video: {}".format(f))

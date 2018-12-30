@@ -4,10 +4,36 @@ import os.path
 from PIL import Image
 import numpy as np
 import cv2
+import glob
 from skimage import feature
 from keypoint2img import interpPoints, drawEdge
 
 NoCannyEdge = False
+
+def face_edges_draw(img_folder_path, kp_folder_path, dst_path, phase='train'):
+
+    kp_paths = sorted(glob.glob(kp_folder_path + '/*'))
+    for i in range(len(kp_paths)):
+        # if i > 2:
+        #     break
+        f = kp_paths[i]
+        print('Processing video: {}'.format(f))
+        dir_basename = os.path.basename(f)
+        print(dir_basename)
+        if dir_basename < 'S064-025':
+           continue
+        save_path = os.path.join(dst_path, phase + '_edges_img', dir_basename)
+        if not os.path.isdir(save_path):
+            os.makedirs(save_path)
+
+        for kp_name in sorted(glob.glob(os.path.join(f, '*.txt'))):
+
+            name = os.path.basename(kp_name).split('.')[0]
+            img_name = os.path.join(img_folder_path, dir_basename, name+'.jpg')
+            img = Image.open(img_name)
+            size = img.size
+
+            Image.fromarray(get_face_image(kp_name, size, img)).save(os.path.join(save_path, name+'.jpg'))
 
 def get_face_image(A_path, size, img, transform_A=None, transform_L=None):
     # read face keypoints from path and crop face region
@@ -99,8 +125,7 @@ def draw_face_edges(keypoints, part_list, transform_A, size, add_dist_map):
     return im_edges #, dist_tensor
 
 if __name__ == '__main__':
-    A_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif_edge/train_keypoints/S002-076/00001.txt'
-    img = Image.open('/home/yaosy/Diskb/research300/videoSegData/mmi/mmif/frame/S002-076/00001.jpg')
-    size = img.size
-
-    Image.fromarray(get_face_image(A_path, size, img)).save('../test/face_test.png')
+    img_folder_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif/frame/'
+    kp_folder_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif_edge/train_keypoints/'
+    dst_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif_edge'
+    face_edges_draw(img_folder_path, kp_folder_path, dst_path)
