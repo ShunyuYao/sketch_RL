@@ -38,7 +38,7 @@ def face_landmark_detection(dataset_path, predictor_path, dst_path, phase='train
                 np.savetxt(save_name, points, fmt='%d', delimiter=',')
 
 if __name__ == '__main__':
-    dataset_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif/frame'
-    predictor_path = '/home/yaosy/Diskb/research300/sketch_rl/sketch_RL/util/face_extract/shape_predictor_68_face_landmarks.dat'
-    save_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif_edge'
+    dataset_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/frame'
+    predictor_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/util/face_extract/shape_predictor_68_face_landmarks.dat'
+    save_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark'
     face_landmark_detection(dataset_path, predictor_path, save_path)

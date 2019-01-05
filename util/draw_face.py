@@ -10,7 +10,7 @@ from keypoint2img import interpPoints, drawEdge
 
 NoCannyEdge = False
 
-def face_edges_draw(img_folder_path, kp_folder_path, dst_path, phase='train'):
+def face_edges_draw(img_folder_path, kp_folder_path, dst_path, phase='all'):
 
     kp_paths = sorted(glob.glob(kp_folder_path + '/*'))
     for i in range(len(kp_paths)):
@@ -19,9 +19,6 @@ def face_edges_draw(img_folder_path, kp_folder_path, dst_path, phase='train'):
         f = kp_paths[i]
         print('Processing video: {}'.format(f))
         dir_basename = os.path.basename(f)
-        print(dir_basename)
-        if dir_basename < 'S064-025':
-           continue
         save_path = os.path.join(dst_path, phase + '_edges_img', dir_basename)
         if not os.path.isdir(save_path):
             os.makedirs(save_path)
@@ -125,7 +122,7 @@ def draw_face_edges(keypoints, part_list, transform_A, size, add_dist_map):
     return im_edges #, dist_tensor
 
 if __name__ == '__main__':
-    img_folder_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif/frame/'
-    kp_folder_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif_edge/train_keypoints/'
-    dst_path = '/home/yaosy/Diskb/research300/videoSegData/mmi/mmif_edge'
+    img_folder_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/frame'
+    kp_folder_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark/all_keypoints'
+    dst_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark/all_imgs_canny'
     face_edges_draw(img_folder_path, kp_folder_path, dst_path)
