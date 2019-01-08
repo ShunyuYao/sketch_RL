@@ -8,7 +8,7 @@ import glob
 from skimage import feature
 from keypoint2img import interpPoints, drawEdge
 
-NoCannyEdge = False
+NoCannyEdge = True
 
 def face_edges_draw(img_folder_path, kp_folder_path, dst_path, phase='all'):
 
@@ -123,6 +123,6 @@ def draw_face_edges(keypoints, part_list, transform_A, size, add_dist_map):
 
 if __name__ == '__main__':
     img_folder_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/frame'
-    kp_folder_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark/all_keypoints'
-    dst_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark/all_imgs_canny'
+    kp_folder_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark/front_data/keypoints'
+    dst_path = '/media/yaosy/办公/research300/sketch_rl/sketch_RL/dataset/face_landmark/front_data/edge_imgs'
     face_edges_draw(img_folder_path, kp_folder_path, dst_path)
