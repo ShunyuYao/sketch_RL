@@ -8,23 +8,38 @@ class C3DVidPredNet(nn.Module):
     network for mmif gray face edges prediction
     """
 
-    def __init__(self, use_dropout = False):
+    def __init__(self, use_dropout = False, norm = 'batch', use_lsgan=True):
         super(C3DVidPredNet, self).__init__()
 
-        self.conv1 = nn.Conv3d(2, 64, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
-        self.conv2 = nn.Conv3d(64, 128, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
-        self.conv3 = nn.Conv3d(128, 256, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
-        self.conv4 = nn.Conv3d(256, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
-        self.conv5a = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
-        self.conv5b = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
+        use_bias = not norm == 'batch'
+        self.conv1 = nn.Conv3d(1, 64, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
+        self.conv2 = nn.Conv3d(64, 128, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv3 = nn.Conv3d(128, 256, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv4 = nn.Conv3d(256, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv5a = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv5b = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv5c = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
         # self.conv5c = nn.Conv3d(1024, 1024, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
 
-        self.deconv1 = nn.ConvTranspose3d(64, 1, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
-        self.deconv2 = nn.ConvTranspose3d(128, 64, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
-        self.deconv3 = nn.ConvTranspose3d(256, 128, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
-        self.deconv4 = nn.ConvTranspose3d(512, 256, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
-        self.deconv5a = nn.ConvTranspose3d(512, 512, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
-        self.deconv5b = nn.ConvTranspose3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
+        self.deconv1 = nn.ConvTranspose3d(64*2, 1, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2))
+        self.deconv2 = nn.ConvTranspose3d(128*2, 64, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2), bias=use_bias)
+        self.deconv3 = nn.ConvTranspose3d(256*2, 128, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2), bias=use_bias)
+        self.deconv4 = nn.ConvTranspose3d(512*2, 256, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2), bias=use_bias)
+        self.deconv5a = nn.ConvTranspose3d(512*2, 512, kernel_size=(2, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2), bias=use_bias)
+        self.deconv5b = nn.ConvTranspose3d(512*2, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2), bias=use_bias)
+        self.deconv5c = nn.ConvTranspose3d(518, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=(1, 2, 2), bias=use_bias)
+
+        self.downnorm2 = nn.BatchNorm3d(128)
+        self.downnorm3 = nn.BatchNorm3d(256)
+        self.downnorm4 = nn.BatchNorm3d(512)
+        self.downnorm5 = nn.BatchNorm3d(512)
+        self.downnorm5_1 = nn.BatchNorm3d(512)
+
+        self.upnorm2 = nn.BatchNorm3d(64)
+        self.upnorm3 = nn.BatchNorm3d(128)
+        self.upnorm4 = nn.BatchNorm3d(256)
+        self.upnorm5 = nn.BatchNorm3d(512)
+        self.upnorm5_1 = nn.BatchNorm3d(512)
 
         self.dropout = nn.Dropout(p=0.5)
 
@@ -32,49 +47,158 @@ class C3DVidPredNet(nn.Module):
         self.uprelu = nn.ReLU(True)
         self.tanh = nn.Tanh()
         self.use_dropout = use_dropout
+        self.Sigmoid = nn.Sigmoid()
+        self.use_lsgan = use_lsgan
         # self.softmax = nn.Softmax()
 
-    def forward(self, x):
+    def forward(self, x, feature):
 
         # print('original size:', x.size())
-        encode = self.downrelu(self.conv1(x))
-        # print('1 encode size:', encode.size())
-        encode = self.downrelu(self.conv2(encode))
-        # print('2 encode size:', encode.size())
-        encode = self.downrelu(self.conv3(encode))
-        # print('3 encode size:', encode.size())
-        encode = self.downrelu(self.conv4(encode))
-        # print('4 encode size:', encode.size())
-        encode = self.downrelu(self.conv5a(encode))
-        # print('5 encode size:', encode.size())
-        encode = self.downrelu(self.conv5b(encode))
+        encode1 = self.downrelu(self.conv1(x))
+        # print('1 encode size:', encode1.size())
+        encode2 = self.downrelu(self.downnorm2(self.conv2(encode1)))
+        # print('2 encode size:', encode2.size())
+        encode3 = self.downrelu(self.downnorm3(self.conv3(encode2)))
+        # print('3 encode size:', encode3.size())
+        encode4 = self.downrelu(self.downnorm4(self.conv4(encode3)))
+        # print('4 encode size:', encode4.size())
+        encode5 = self.downrelu(self.downnorm5(self.conv5a(encode4)))
+        # print('5 encode size:', encode5.size())
+        encode5_1 = self.downrelu(self.downnorm5_1(self.conv5b(encode5)))
+        encode = self.downrelu(self.conv5c(encode5_1))
+        encode = torch.cat([encode, feature], 1)
         # print('final size:', encode.size())
 
-        decode = self.uprelu(self.deconv5b(encode))
+        decode5_1 = self.uprelu(self.deconv5c(encode))
+        decode5_1 = torch.cat([encode5_1, decode5_1], 1)
         if self.use_dropout:
-            decode = self.dropout(decode)
-        # print('5 decode size:', decode.size())
-        decode = self.uprelu(self.deconv5a(decode))
+            decode5_1 = self.dropout(decode5_1)
+        # print('5 decode size:', decode5.size())
+        decode5 = self.uprelu(self.upnorm5_1(self.deconv5b(decode5_1)))
+
+        decode5_fin = torch.Tensor([]).to(decode5.device)
+        for i in range(decode5.size()[2]):
+            decode5_temp = torch.cat([encode5, decode5[:, :, i].unsqueeze(2)], 1)
+            decode5_fin = torch.cat([decode5_fin, decode5_temp], dim=2)
+
+        decode5 = decode5_fin
+
+        # decode4 = torch.cat([encode4, decode4], 1)
         if self.use_dropout:
-            decode = self.dropout(decode)
-        # print('4 decode size:', decode.size())
-        decode = self.uprelu(self.deconv4(decode))
+            decode5 = self.dropout(decode5)
+
+        decode4 = self.uprelu(self.upnorm5(self.deconv5a(decode5)))
+
+        decode4_fin = torch.Tensor([]).to(decode4.device)
+        for i in range(decode4.size()[2]):
+            decode4_temp = torch.cat([encode4, decode4[:, :, i].unsqueeze(2)], 1)
+            decode4_fin = torch.cat([decode4_fin, decode4_temp], dim=2)
+
+        decode4 = decode4_fin
+
+        # decode4 = torch.cat([encode4, decode4], 1)
         if self.use_dropout:
-            decode = self.dropout(decode)
-        # print('3 decode size:', decode.size())
-        decode = self.uprelu(self.deconv3(decode))
+            decode4 = self.dropout(decode4)
+        # print('4 decode size:', decode4.size())
+        decode3 = self.uprelu(self.upnorm4(self.deconv4(decode4)))
+        decode3_fin = torch.Tensor([]).to(decode3.device)
+        for i in range(decode3.size()[2]):
+            decode3_temp = torch.cat([encode3, decode3[:, :, i].unsqueeze(2)], 1)
+            decode3_fin = torch.cat([decode3_fin, decode3_temp], dim=2)
+
+        decode3 = decode3_fin
+        # decode3 = torch.cat([encode3, decode3], 1)
         if self.use_dropout:
-            decode = self.dropout(decode)
-        # print('2 decode size:', decode.size())
-        decode = self.uprelu(self.deconv2(decode))
+            decode3 = self.dropout(decode3)
+
+        # print('3 decode size:', decode3.size())
+        decode2 = self.uprelu(self.upnorm3(self.deconv3(decode3)))
+        decode2_fin = torch.Tensor([]).to(decode2.device)
+        for i in range(decode2.size()[2]):
+            decode2_temp = torch.cat([encode2, decode2[:, :, i].unsqueeze(2)], 1)
+            decode2_fin = torch.cat([decode2_fin, decode2_temp], dim=2)
+
+        decode2 = decode2_fin
+        # decode2 = torch.cat([encode2, decode2], 1)
         if self.use_dropout:
-            decode = self.dropout(decode)
-        # print('1 decode size:', decode.size())
-        decode = self.tanh(self.deconv1(decode))
+            decode2 = self.dropout(decode2)
+
+        # print('2 decode size:', decode2.size())
+        decode1 = self.uprelu(self.upnorm2(self.deconv2(decode2)))
+        decode1_fin = torch.Tensor([]).to(decode1.device)
+        for i in range(decode1.size()[2]):
+            decode1_temp = torch.cat([encode1, decode1[:, :, i].unsqueeze(2)], 1)
+            decode1_fin = torch.cat([decode1_fin, decode1_temp], dim=2)
+
+        decode1 = decode1_fin
+        # decode1 = torch.cat([encode1, decode1], 1)
+
+        if self.use_dropout:
+            decode1 = self.dropout(decode1)
+        # print('1 decode size:', decode1.size())
+        if self.use_lsgan:
+            decode = self.tanh(self.deconv1(decode1))
+        else:
+            decode = self.Sigmoid(self.deconv1(decode1))
         # print('ori decode size:', decode.size())
 
         return decode
 
+class C3D_discNet(nn.Module):
+    """
+    The C3D network as described in [1].
+    network for mmif gray face edges prediction
+    """
+
+    def __init__(self, use_dropout = False, norm = 'batch', use_lsgan=False):
+        super(C3D_discNet, self).__init__()
+
+        use_bias = not norm == 'batch'
+        self.conv1 = nn.Conv3d(1, 64, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2)
+        self.conv2 = nn.Conv3d(64, 128, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv3 = nn.Conv3d(128, 256, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv4 = nn.Conv3d(256, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        self.conv5a = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        # self.conv5b = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+        # self.conv5c = nn.Conv3d(512, 512, kernel_size=(1, 4, 4), padding=(0, 1, 1), stride=2, bias=use_bias)
+
+        self.downnorm2 = nn.BatchNorm3d(128)
+        self.downnorm3 = nn.BatchNorm3d(256)
+        self.downnorm4 = nn.BatchNorm3d(512)
+        self.downnorm5 = nn.BatchNorm3d(512)
+        self.downnorm5_1 = nn.BatchNorm3d(512)
+
+        self.downrelu = nn.LeakyReLU(0.2, True)
+        self.use_lsgan = use_lsgan
+
+        self.tanh = nn.Tanh()
+        self.Sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+
+        # print('original size:', x.size())
+        encode1 = self.downrelu(self.conv1(x))
+        # print('1 encode size:', encode1.size())
+        encode2 = self.downrelu(self.downnorm2(self.conv2(encode1)))
+        # print('2 encode size:', encode2.size())
+        encode3 = self.downrelu(self.downnorm3(self.conv3(encode2)))
+        # print('3 encode size:', encode3.size())
+        encode4 = self.downrelu(self.downnorm4(self.conv4(encode3)))
+        # print('4 encode size:', encode4.size())
+        encode5 = self.downrelu(self.downnorm5(self.conv5a(encode4)))
+        # print('5 encode size:', encode5.size())
+        # encode5_1 = self.downrelu(self.downnorm5_1(self.conv5b(encode5)))
+        # encode = self.downrelu(self.conv5c(encode5_1))
+        # encode = torch.cat([encode5, feature], 1)
+
+        if self.use_lsgan:
+            encode = self.tanh(encode5)
+        else:
+            encode = self.Sigmoid(encode5)
+
+        # print('final size:', encode.size())
+
+        return encode
 # Defines the Unet generator.
 # |num_downs|: number of downsamplings in UNet. For example,
 # if |num_downs| == 7, image of size 128x128 will become of size 1x1

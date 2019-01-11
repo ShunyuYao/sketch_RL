@@ -132,3 +132,63 @@ class NLayerDiscriminator(nn.Module):
             return res[1:]
         else:
             return self.model(input)
+
+class C3D_Discriminator(nn.Module):
+    def __init__(self):
+        super(C3D_Discriminator, self).__init__()
+        self.model = nn.Sequential( # [-1, 3, 32, 64, 64]
+                self._conv3d(3, 128), #[-1, 64, 16, 32, 32]
+                self._lrelu(0.2),
+                self._conv3d(128,256), #[-1, 126,8,16,16]
+                self._batchNorm5d(256, 1e-3),
+                self._lrelu(0.2),
+                self._conv3d(256,512), #[-1,256,4,8,8]
+                self._batchNorm5d(512, 1e-3),
+                self._lrelu(0.2),
+                self._conv3d(512,1024), #[-1,512,2,4,4]
+                self._batchNorm5d(1024,1e-3),
+                self._lrelu(0.2),
+                self._conv3d(1024,2, (2,4,4), (1,1,1), (0,0,0)) #[-1,2,1,1,1] because (2,4,4) is the kernel size
+                )
+        #self.mymodules = nn.ModuleList([nn.Sequential(nn.Linear(2,1), nn.Sigmoid())])
+
+def _conv2d(in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
+    return nn.Conv2d(in_channels, out_channels, kernel_size = kernel_size, stride = stride, padding = padding, bias = True)
+
+def _conv3d(in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
+    return nn.Conv3d(in_channels, out_channels, kernel_size = kernel_size, stride = stride, padding = padding, bias = True)
+
+
+def _deconv2d_first(in_channels, out_channels):
+    return nn.ConvTranspose2d(in_channels, out_channels, kernel_size = (4,4))
+
+def _deconv2d(in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
+    return nn.ConvTranspose2d(in_channels, out_channels, kernel_size = kernel_size, stride = stride, padding = padding, bias = True)
+
+
+def _deconv3d_first(in_channels, out_channels):
+    return nn.ConvTranspose3d(in_channels, out_channels, kernel_size=(2,4,4))
+
+def _deconv3d_video(in_channels, out_channels):
+    return nn.ConvTranspose3d(in_channels, out_channels, kernel_size=(2,1,1))
+
+def _deconv3d(in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
+    return nn.ConvTranspose3d(in_channels, out_channels, kernel_size = kernel_size, stride = stride, padding = padding, bias = True)
+
+
+def _batchNorm4d(num_features, eps = 1e-5): #input: N, C, H, W
+    return nn.BatchNorm2d(num_features, eps = eps)
+
+def _batchNorm5d(num_features, eps = 1e-5): #input: N, C, D, H, W
+    return nn.BatchNorm3d(num_features, eps = eps)
+
+def _relu(inplace = True):
+    return nn.ReLU(inplace)
+
+def _lrelu(negative_slope = 0.2, inplace = True):
+    return nn.LeakyReLU(negative_slope, inplace)
+
+    def forward(self, x):
+        out = self.model(x).squeeze()
+        #out = self.mymodules[0](out)
+        return out

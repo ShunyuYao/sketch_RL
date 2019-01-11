@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 from PIL import Image
+from sklearn.preprocessing import OneHotEncoder
 
 class FaceEdgeFolder(data.Dataset):
     """
@@ -23,6 +24,9 @@ class FaceEdgeFolder(data.Dataset):
         self.target_transform = target_transform
         self.img_num_folder = self._count_img_num(root, self.root_folder_names)
 
+        self.enc = OneHotEncoder()
+        self.enc.fit(self.df_folder2idx.emotion_id.values.reshape(-1, 1))
+
     def __len__(self):
         return len(self.root_folder_names)
 
@@ -33,9 +37,13 @@ class FaceEdgeFolder(data.Dataset):
         img_names = sorted(os.listdir(os.path.join(self.root, root_folder_name)))
         img_num =  self.img_num_folder[folder_idx]
         emotion_label = self.df_folder2idx[self.df_folder2idx.iloc[:, 0] == root_folder_name].iloc[0, 1]
+        emotion_label = self.enc.transform(emotion_label.reshape(-1, 1))
+        emotion_label = torch.Tensor(emotion_label.toarray()).squeeze(0)
+        emotion_label = emotion_label.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
 
         # sample the clip
         while not samp_complete:
+            # print('samp')
             start_img_idx = np.random.randint(0, img_num - self.samp_len)
             samp_intervs = list(np.random.choice(self.samp_interv, size=len(self.samp_interv), replace=False))
             for interv in samp_intervs:
@@ -45,7 +53,7 @@ class FaceEdgeFolder(data.Dataset):
                 break
 
         for i, img_idx in enumerate(range(start_img_idx, start_img_idx + interv * self.samp_len, interv)):
-            img = Image.open(os.path.join(self.root, root_folder_name, img_names[img_idx]))
+            img = Image.open(os.path.join(self.root, root_folder_name, img_names[img_idx])).convert('1')
             img_tensor = self.transform(img)
             img_tensor = img_tensor.unsqueeze(0)
             if i == 0:
